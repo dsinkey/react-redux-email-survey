@@ -6,5 +6,5 @@ export default [
     {label: "Email Body",
     name: "email"},
     {label: "Recipent List",
-    name: "emails"}
+    name: "recipients"}
 ];
