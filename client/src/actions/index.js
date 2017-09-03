@@ -12,5 +12,5 @@ export const handleToken = (token) => async dispatch => {
 };
 
 export const submitSurvey = (values) => {
-    dispatch({ type: 'submit_survey'});
+    return({ type: 'submit_survey'});
 };
