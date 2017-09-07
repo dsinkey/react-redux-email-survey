@@ -10,29 +10,52 @@ const surveyTemplate = require('../services/emailTemplates/surveyTemplate');
 const Survey = mongoose.model('survey');
 
 module.exports = app => {
-    app.get('/api/surveys/thanks', (req, res) => {
+    app.get('/api/surveys/', requireLogin, async (req, res) => {
+        const surveys = await Survey.find({
+            _user: req.user.id
+        });
+
+        res.send(surveys);
+    });
+
+    app.get('/api/surveys/:surveyId/:choice', (req, res) => {
         res.send('Thank you for voting!');
     });
 
     app.get('/api/surveys/webhooks', (req, res) => {
         const p = new Path('/api/surveys/:surveyId/:choice');
-        
-        const events = _.map(req.body, event => {
-            const pathname = new URL(event.url).pathname;
-            const match = p.test(pathname);
-            if (match) {
-                return {
-                    email: event.email,
-                    surveyId: match.surveyId,
-                    choice: match.choice,
-                };
-            }
-        });
 
-        const compactEvents = _.compact(events);
-        const uniqueEvent = _.uniqBy(compactEvents, 'email', 'surveyId');
+        _.chain(req.body)
+            .map(({ email, url }) => {
+                const pathname = new URL(url).pathname;
+                const match = p.test(pathname);
+                if (match) {
+                    return {
+                        email,
+                        surveyId: match.surveyId,
+                        choice: match.choice,
+                    };
+                }
+            })
+            .compact()
+            .uniqBy('email', 'surveyId')
+            .each(({ surveyId, email, choice }) => {
+                Survey.updateOne(
+                    {
+                        _id: surveyId,
+                        recipients: {
+                            $elemMatch: { email: email, responsed: false },
+                        },
+                    },
+                    {
+                        $inc: { [choice]: 1 },
+                        $set: { 'recipients.$.responsed': true },
+                        lastResponded: new Date()
+                    },
+                ).exec();
+            })
+            .value();
 
-        console.log(uniqueEvent);
         res.send({});
     });
 
